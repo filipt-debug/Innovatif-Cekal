@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Request - Reduce In-Process Leak Tests</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="presentation">
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+
+        <!-- Navigation Dots -->
+        <nav class="slide-nav" id="slideNav"></nav>
+
+        <!-- Slide 1: Title -->
+        <section class="slide active" data-slide="1">
+            <div class="slide-content title-slide">
+                <div class="badge">CHANGE REQUEST</div>
+                <h1>Reduce In-Process Leak Tests 1-3</h1>
+                <p class="subtitle">Keep Final Leak Test at 100%</p>
+
+                <div class="decision-box">
+                    <h3>Beslutsförslag</h3>
+                    <ul>
+                        <li><span class="icon keep">✓</span> Behåll läcktest 4 på <strong>100%</strong> på färdig produkt</li>
+                        <li><span class="icon change">↓</span> Reducera test 1-3 från 100% till <strong>sampling</strong> (2 av 200)</li>
+                        <li><span class="icon tool">🔧</span> Använd test 1-3 som <strong>felsökningsstöd</strong> vid fail</li>
+                    </ul>
+                </div>
+
+                <div class="cta-hint">
+                    <span>Tryck <kbd>→</kbd> eller klicka för att fortsätta</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 2: Current State -->
+        <section class="slide" data-slide="2">
+            <div class="slide-content">
+                <h2>Nuvarande läge & Problem</h2>
+
+                <div class="two-columns">
+                    <div class="column">
+                        <h3>Nuvarande process</h3>
+                        <div class="test-timeline">
+                            <div class="test-item">
+                                <div class="test-label">Test 1</div>
+                                <div class="test-bar" style="--width: 37%">
+                                    <span class="test-time">38s</span>
+                                </div>
+                            </div>
+                            <div class="test-item">
+                                <div class="test-label">Test 2</div>
+                                <div class="test-bar" style="--width: 24%">
+                                    <span class="test-time">25s</span>
+                                </div>
+                            </div>
+                            <div class="test-item">
+                                <div class="test-label">Test 3</div>
+                                <div class="test-bar" style="--width: 38%">
+                                    <span class="test-time">39s</span>
+                                </div>
+                            </div>
+                            <div class="test-item final">
+                                <div class="test-label">Test 4</div>
+                                <div class="test-bar" style="--width: 40%">
+                                    <span class="test-time">41s</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="total-time">
+                            Total: <strong class="counter" data-target="143">0</strong>s per enhet
+                        </div>
+                    </div>
+
+                    <div class="column">
+                        <h3>Problem</h3>
+                        <div class="problem-list">
+                            <div class="problem-item">
+                                <div class="problem-icon">⏱️</div>
+                                <div class="problem-text">
+                                    <strong>Tidsdrivare</strong>
+                                    <p>Test 1-3 utgör 71% av läcktesttiden</p>
+                                </div>
+                            </div>
+                            <div class="problem-item">
+                                <div class="problem-icon">📉</div>
+                                <div class="problem-text">
+                                    <strong>Låg rejection</strong>
+                                    <p>Endast 0.1-0.3% reject rate</p>
+                                </div>
+                            </div>
+                            <div class="problem-item">
+                                <div class="problem-icon">🗑️</div>
+                                <div class="problem-text">
+                                    <strong>Ingen rework</strong>
+                                    <p>Fail leder direkt till kassation</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: Data -->
+        <section class="slide" data-slide="3">
+            <div class="slide-content">
+                <h2>Data som motiverar förändringen</h2>
+
+                <div class="data-section">
+                    <h3>Historiska rejection rates</h3>
+                    <div class="rejection-chart">
+                        <div class="chart-bar">
+                            <div class="bar-fill" style="--height: 33%" data-value="0.1%">
+                                <span class="bar-label">Test 1</span>
+                            </div>
+                        </div>
+                        <div class="chart-bar">
+                            <div class="bar-fill" style="--height: 100%" data-value="0.3%">
+                                <span class="bar-label">Test 2</span>
+                            </div>
+                        </div>
+                        <div class="chart-bar">
+                            <div class="bar-fill" style="--height: 67%" data-value="0.2%">
+                                <span class="bar-label">Test 3</span>
+                            </div>
+                        </div>
+                        <div class="chart-bar final-bar">
+                            <div class="bar-fill" style="--height: 33%" data-value="0.1%">
+                                <span class="bar-label">Test 4</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-scale">
+                        <span>0%</span>
+                        <span>0.3%</span>
+                    </div>
+                </div>
+
+                <div class="key-point">
+                    <div class="key-icon">🔑</div>
+                    <div class="key-text">
+                        <strong>Kärnpoäng</strong>
+                        <p>Utgående produkt skyddas av <strong>Test 4 (100%)</strong> som är release-kriteriet.</p>
+                        <p>Test 1-3 ger <em>liten extra kvalitetsnytta</em> relativt tidskostnaden.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Proposed Change -->
+        <section class="slide" data-slide="4">
+            <div class="slide-content">
+                <h2>Föreslagen ändring</h2>
+
+                <div class="strategy-comparison">
+                    <div class="strategy-box current">
+                        <h3>Nuvarande</h3>
+                        <div class="strategy-items">
+                            <div class="strategy-item">Test 1 <span class="badge-inline red">100%</span></div>
+                            <div class="strategy-item">Test 2 <span class="badge-inline red">100%</span></div>
+                            <div class="strategy-item">Test 3 <span class="badge-inline red">100%</span></div>
+                            <div class="strategy-item">Test 4 <span class="badge-inline green">100%</span></div>
+                        </div>
+                    </div>
+
+                    <div class="arrow-transition">→</div>
+
+                    <div class="strategy-box new">
+                        <h3>Ny strategi</h3>
+                        <div class="strategy-items">
+                            <div class="strategy-item">Test 1-3 <span class="badge-inline blue">1% sampling</span></div>
+                            <div class="strategy-item detail">2 av ~200 enheter per pass</div>
+                            <div class="strategy-item">Test 4 <span class="badge-inline green">100%</span></div>
+                            <div class="strategy-item detail">Oförändrat release-kriterium</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="triggers-section">
+                    <h3>Extra sampling triggers</h3>
+                    <div class="trigger-grid">
+                        <div class="trigger-item">
+                            <span class="trigger-icon">🔄</span>
+                            <span>Changeover</span>
+                        </div>
+                        <div class="trigger-item">
+                            <span class="trigger-icon">🔧</span>
+                            <span>Underhåll</span>
+                        </div>
+                        <div class="trigger-item">
+                            <span class="trigger-icon">📦</span>
+                            <span>Materialbyte</span>
+                        </div>
+                        <div class="trigger-item">
+                            <span class="trigger-icon">⏸️</span>
+                            <span>Större stopp</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fallback-note">
+                    <strong>Vid fail i Test 4:</strong> Kör Test 1-3 för att lokalisera läckkälla + containment vid behov
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: Risk & Controls -->
+        <section class="slide" data-slide="5">
+            <div class="slide-content">
+                <h2>Risk & Kontroller</h2>
+
+                <div class="risk-grid">
+                    <div class="risk-card patient">
+                        <h4>Patientsäkerhet</h4>
+                        <p class="risk-desc">Risk att läckande produkt släpps</p>
+                        <div class="control">
+                            <span class="control-label">Kontroll:</span>
+                            <span class="control-text">100% sluttest kvarstår oförändrat</span>
+                        </div>
+                    </div>
+
+                    <div class="risk-card internal">
+                        <h4>Intern risk</h4>
+                        <p class="risk-desc">Upptäckt senare ger mer värdebyggt skrot</p>
+                        <div class="control">
+                            <span class="control-label">Kontroll:</span>
+                            <span class="control-text">Sampling + stop criteria</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <h3>Verifikation & Kontroller</h3>
+                    <div class="control-list">
+                        <div class="control-item">
+                            <div class="control-number">1</div>
+                            <div class="control-content">
+                                <strong>Coverage verification</strong>
+                                <p>Fault injection - visa att Test 4 detekterar läckage från steg 1-3</p>
+                            </div>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-number">2</div>
+                            <div class="control-content">
+                                <strong>Trendmonitorering</strong>
+                                <p>Test 4 fail rate per dag/skift</p>
+                            </div>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-number">3</div>
+                            <div class="control-content">
+                                <strong>Stop criteria</strong>
+                                <p>Vid signifikant ökning → revert till 100% in-process test</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 6: Impact & Request -->
+        <section class="slide" data-slide="6">
+            <div class="slide-content">
+                <h2>Effekt & Request</h2>
+
+                <div class="impact-dashboard">
+                    <div class="impact-card big">
+                        <div class="impact-value">
+                            <span class="counter" data-target="70.6">0</span><span class="unit">%</span>
+                        </div>
+                        <div class="impact-label">Reduktion av läcktesttid</div>
+                        <div class="impact-detail">143s → 42s per enhet</div>
+                    </div>
+
+                    <div class="impact-card">
+                        <div class="impact-value">
+                            <span class="counter" data-target="101">0</span><span class="unit">s</span>
+                        </div>
+                        <div class="impact-label">Sparad tid per enhet</div>
+                    </div>
+
+                    <div class="impact-card">
+                        <div class="impact-value">
+                            <span class="counter" data-target="0.533" data-decimals="3">0</span><span class="unit"> MYR</span>
+                        </div>
+                        <div class="impact-label">Besparing per enhet</div>
+                    </div>
+                </div>
+
+                <div class="batch-savings">
+                    <h3>Per batch (200 enheter)</h3>
+                    <div class="batch-grid">
+                        <div class="batch-item">
+                            <span class="batch-value">5.61h</span>
+                            <span class="batch-label">Sparad tid</span>
+                        </div>
+                        <div class="batch-item">
+                            <span class="batch-value">106.6 MYR</span>
+                            <span class="batch-label">Sparad kostnad</span>
+                        </div>
+                        <div class="batch-item">
+                            <span class="batch-value">~533 MYR</span>
+                            <span class="batch-label">Per 1,000 enheter</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="request-box">
+                    <h3>Request</h3>
+                    <ul>
+                        <li>Godkänn pilot med definierad verifiering och stop criteria</li>
+                        <li>Uppdatera control plan och work instructions</li>
+                        <li>Definiera startdatum, ansvarig, och rapportering</li>
+                    </ul>
+                </div>
+
+                <div class="quote-box">
+                    <blockquote>
+                        "Vi tar inte bort release-barriären, varje enhet sluttestas fortsatt på 100%.
+                        Vi tar bort redundant 100% screening tidigare i flödet."
+                    </blockquote>
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation Arrows -->
+        <button class="nav-arrow prev" id="prevBtn" aria-label="Previous slide">‹</button>
+        <button class="nav-arrow next" id="nextBtn" aria-label="Next slide">›</button>
+
+        <!-- Slide Counter -->
+        <div class="slide-counter">
+            <span id="currentSlide">1</span> / <span id="totalSlides">6</span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
