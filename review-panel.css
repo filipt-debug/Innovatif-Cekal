@@ -372,6 +372,70 @@
     color: var(--success);
 }
 
+/* Slide Indicator */
+.slide-indicator {
+    font-weight: 400;
+    color: var(--primary);
+    font-size: 0.8rem;
+}
+
+/* Comment Bubbles */
+.comment-bubbles {
+    position: fixed;
+    bottom: 100px;
+    left: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 150;
+    max-width: 350px;
+    pointer-events: none;
+}
+
+.comment-bubble {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border-left: 4px solid var(--primary);
+    animation: bubbleIn 0.4s ease forwards;
+    animation-delay: calc(var(--bubble-index) * 0.1s);
+    opacity: 0;
+    transform: translateX(-20px);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.comment-bubble:hover {
+    transform: translateX(5px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.2);
+}
+
+@keyframes bubbleIn {
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.bubble-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bubble-text {
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    line-height: 1.4;
+}
+
+.bubble-time {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .review-panel {

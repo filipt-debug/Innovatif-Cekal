@@ -5,6 +5,7 @@ class ReviewPanel {
         this.panel = document.getElementById('reviewPanel');
         this.toggle = document.getElementById('panelToggle');
         this.saveIndicator = document.getElementById('saveIndicator');
+        this.currentSlide = 1;
 
         this.init();
     }
@@ -13,8 +14,10 @@ class ReviewPanel {
         this.loadData();
         this.bindEvents();
         this.renderComments();
+        this.renderBubbles();
         this.updateScoreDisplays();
         this.updateStatus();
+        this.updateSlideIndicator();
     }
 
     // Data Management
@@ -30,9 +33,15 @@ class ReviewPanel {
             this.allData.crs[this.crId] = {
                 scores: { effort: null, efficiency: null, risk: null },
                 comments: [],
+                slideComments: {},
                 status: 'not-started',
                 lastViewed: null
             };
+        }
+
+        // Ensure slideComments exists (migration)
+        if (!this.allData.crs[this.crId].slideComments) {
+            this.allData.crs[this.crId].slideComments = {};
         }
 
         this.crData = this.allData.crs[this.crId];
@@ -49,15 +58,15 @@ class ReviewPanel {
     }
 
     showSaveIndicator() {
-        this.saveIndicator.textContent = 'Sparar...';
+        this.saveIndicator.textContent = 'Saving...';
         this.saveIndicator.className = 'save-indicator saving';
 
         setTimeout(() => {
-            this.saveIndicator.textContent = 'Sparat!';
+            this.saveIndicator.textContent = 'Saved!';
             this.saveIndicator.className = 'save-indicator saved';
 
             setTimeout(() => {
-                this.saveIndicator.textContent = 'Sparas automatiskt';
+                this.saveIndicator.textContent = 'Auto-saved';
                 this.saveIndicator.className = 'save-indicator';
             }, 1500);
         }, 300);
@@ -66,7 +75,25 @@ class ReviewPanel {
     // Event Bindings
     bindEvents() {
         // Panel toggle
-        this.toggle.addEventListener('click', () => this.togglePanel());
+        this.toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.togglePanel();
+        });
+
+        // Prevent clicks inside panel from closing it
+        this.panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Click outside to close
+        document.addEventListener('click', (e) => {
+            if (this.panel.classList.contains('open') &&
+                !this.panel.contains(e.target) &&
+                !this.toggle.contains(e.target) &&
+                !e.target.closest('.comment-bubble')) {
+                this.closePanel();
+            }
+        });
 
         // Minimize button
         document.getElementById('panelMinimize').addEventListener('click', () => this.minimizePanel());
@@ -119,12 +146,72 @@ class ReviewPanel {
                 }
             }
         });
+
+        // Listen for slide changes from the presentation
+        this.observeSlideChanges();
+    }
+
+    observeSlideChanges() {
+        // Watch for changes to the current slide indicator
+        const slideCounter = document.getElementById('currentSlide');
+        if (slideCounter) {
+            const observer = new MutationObserver(() => {
+                const newSlide = parseInt(slideCounter.textContent);
+                if (newSlide !== this.currentSlide) {
+                    this.currentSlide = newSlide;
+                    this.onSlideChange();
+                }
+            });
+            observer.observe(slideCounter, { childList: true, characterData: true, subtree: true });
+        }
+
+        // Also check on keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === ' ') {
+                setTimeout(() => {
+                    const slideCounter = document.getElementById('currentSlide');
+                    if (slideCounter) {
+                        const newSlide = parseInt(slideCounter.textContent);
+                        if (newSlide !== this.currentSlide) {
+                            this.currentSlide = newSlide;
+                            this.onSlideChange();
+                        }
+                    }
+                }, 100);
+            }
+        });
+    }
+
+    onSlideChange() {
+        this.updateSlideIndicator();
+        this.renderComments();
+        this.renderBubbles();
+    }
+
+    updateSlideIndicator() {
+        const indicator = document.getElementById('slideIndicator');
+        if (indicator) {
+            indicator.textContent = `(Slide ${this.currentSlide})`;
+        }
     }
 
     // Panel Controls
     togglePanel() {
-        this.panel.classList.toggle('open');
-        this.toggle.classList.toggle('active');
+        if (this.panel.classList.contains('open')) {
+            this.closePanel();
+        } else {
+            this.openPanel();
+        }
+    }
+
+    openPanel() {
+        this.panel.classList.add('open');
+        this.toggle.classList.add('active');
+    }
+
+    closePanel() {
+        this.panel.classList.remove('open');
+        this.toggle.classList.remove('active');
     }
 
     minimizePanel() {
@@ -159,7 +246,7 @@ class ReviewPanel {
         document.getElementById('statusSelect').value = this.crData.status;
     }
 
-    // Comment Management
+    // Comment Management (Slide-specific)
     addComment() {
         const input = document.getElementById('commentInput');
         const text = input.value.trim();
@@ -172,9 +259,15 @@ class ReviewPanel {
             timestamp: new Date().toISOString()
         };
 
-        this.crData.comments.push(comment);
+        // Add to slide-specific comments
+        if (!this.crData.slideComments[this.currentSlide]) {
+            this.crData.slideComments[this.currentSlide] = [];
+        }
+        this.crData.slideComments[this.currentSlide].push(comment);
+
         this.saveData();
         this.renderComments();
+        this.renderBubbles();
 
         input.value = '';
         input.focus();
@@ -184,21 +277,32 @@ class ReviewPanel {
     }
 
     deleteComment(commentId) {
-        this.crData.comments = this.crData.comments.filter(c => c.id !== commentId);
+        // Remove from slide comments
+        if (this.crData.slideComments[this.currentSlide]) {
+            this.crData.slideComments[this.currentSlide] =
+                this.crData.slideComments[this.currentSlide].filter(c => c.id !== commentId);
+        }
+        // Also check legacy comments
+        if (this.crData.comments) {
+            this.crData.comments = this.crData.comments.filter(c => c.id !== commentId);
+        }
+
         this.saveData();
         this.renderComments();
+        this.renderBubbles();
     }
 
     renderComments() {
         const container = document.getElementById('commentsList');
+        const slideComments = this.crData.slideComments[this.currentSlide] || [];
 
-        if (this.crData.comments.length === 0) {
-            container.innerHTML = '<p class="comments-empty">Inga kommentarer ännu</p>';
+        if (slideComments.length === 0) {
+            container.innerHTML = '<p class="comments-empty">No comments for this slide</p>';
             return;
         }
 
         // Sort by newest first
-        const sorted = [...this.crData.comments].sort((a, b) =>
+        const sorted = [...slideComments].sort((a, b) =>
             new Date(b.timestamp) - new Date(a.timestamp)
         );
 
@@ -206,14 +310,51 @@ class ReviewPanel {
             <div class="comment-item" data-comment-id="${comment.id}">
                 <div class="comment-time">${this.formatTime(comment.timestamp)}</div>
                 <div class="comment-text">${this.escapeHtml(comment.text)}</div>
-                <button class="delete-comment" onclick="reviewPanel.deleteComment(${comment.id})" title="Ta bort">&times;</button>
+                <button class="delete-comment" onclick="reviewPanel.deleteComment(${comment.id})" title="Delete">&times;</button>
             </div>
         `).join('');
     }
 
+    // Comment Bubbles (displayed in presentation area)
+    renderBubbles() {
+        const container = document.getElementById('commentBubbles');
+        if (!container) return;
+
+        const slideComments = this.crData.slideComments[this.currentSlide] || [];
+
+        if (slideComments.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        // Show only the most recent 3 comments as bubbles
+        const recentComments = [...slideComments]
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .slice(0, 3);
+
+        container.innerHTML = recentComments.map((comment, index) => `
+            <div class="comment-bubble" style="--bubble-index: ${index}">
+                <div class="bubble-content">
+                    <span class="bubble-text">${this.truncateText(comment.text, 80)}</span>
+                    <span class="bubble-time">${this.formatTime(comment.timestamp)}</span>
+                </div>
+            </div>
+        `).join('');
+
+        // Add click handler to bubbles to open panel
+        container.querySelectorAll('.comment-bubble').forEach(bubble => {
+            bubble.addEventListener('click', () => this.openPanel());
+        });
+    }
+
+    truncateText(text, maxLength) {
+        if (text.length <= maxLength) return this.escapeHtml(text);
+        return this.escapeHtml(text.substring(0, maxLength)) + '...';
+    }
+
     formatTime(timestamp) {
         const date = new Date(timestamp);
-        return date.toLocaleString('sv-SE', {
+        return date.toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',

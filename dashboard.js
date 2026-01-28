@@ -6,7 +6,7 @@ class Dashboard {
             {
                 id: 'cr-leak-test',
                 title: 'Reduce In-Process Leak Tests 1-3',
-                subtitle: 'Reducera läcktester, behåll sluttest på 100%',
+                subtitle: 'Reduce leak tests, keep final test at 100%',
                 file: 'cr-leak-test.html',
                 category: 'Process Optimization'
             }
@@ -38,6 +38,7 @@ class Dashboard {
                 this.data.crs[cr.id] = {
                     scores: { effort: null, efficiency: null, risk: null },
                     comments: [],
+                    slideComments: {},
                     status: 'not-started',
                     lastViewed: null
                 };
@@ -45,15 +46,20 @@ class Dashboard {
             this.saveData();
         }
 
-        // Ensure all CRs exist in data
+        // Ensure all CRs exist in data with slideComments
         this.crDefinitions.forEach(cr => {
             if (!this.data.crs[cr.id]) {
                 this.data.crs[cr.id] = {
                     scores: { effort: null, efficiency: null, risk: null },
                     comments: [],
+                    slideComments: {},
                     status: 'not-started',
                     lastViewed: null
                 };
+            }
+            // Ensure slideComments exists for migration
+            if (!this.data.crs[cr.id].slideComments) {
+                this.data.crs[cr.id].slideComments = {};
             }
         });
     }
@@ -67,12 +73,12 @@ class Dashboard {
         const container = document.getElementById('crList');
         const countEl = document.getElementById('crCount');
 
-        countEl.textContent = `${this.crDefinitions.length} st`;
+        countEl.textContent = `${this.crDefinitions.length}`;
 
         container.innerHTML = this.crDefinitions.map(cr => {
-            const crData = this.data.crs[cr.id] || { scores: {}, comments: [], status: 'not-started' };
+            const crData = this.data.crs[cr.id] || { scores: {}, comments: [], slideComments: {}, status: 'not-started' };
             const scores = crData.scores;
-            const commentCount = crData.comments.length;
+            const commentCount = this.getTotalCommentCount(crData);
 
             return `
                 <div class="cr-card" data-cr-id="${cr.id}">
@@ -110,10 +116,10 @@ class Dashboard {
 
                     <div class="cr-card-footer">
                         <div class="cr-comments-preview">
-                            <strong>${commentCount}</strong> kommentar${commentCount !== 1 ? 'er' : ''}
+                            <strong>${commentCount}</strong> comment${commentCount !== 1 ? 's' : ''}
                         </div>
                         <a href="${cr.file}" class="btn-view">
-                            Öppna presentation
+                            Open presentation
                             <span>→</span>
                         </a>
                     </div>
@@ -122,11 +128,21 @@ class Dashboard {
         }).join('');
     }
 
+    getTotalCommentCount(crData) {
+        let count = crData.comments ? crData.comments.length : 0;
+        if (crData.slideComments) {
+            Object.values(crData.slideComments).forEach(slideComments => {
+                count += slideComments.length;
+            });
+        }
+        return count;
+    }
+
     getStatusLabel(status) {
         const labels = {
-            'not-started': 'Ej startad',
-            'pending': 'Under granskning',
-            'reviewed': 'Granskad'
+            'not-started': 'Not started',
+            'pending': 'Under review',
+            'reviewed': 'Reviewed'
         };
         return labels[status] || status;
     }
@@ -163,24 +179,24 @@ class Dashboard {
 
         container.innerHTML = `
             <div class="summary-card">
-                <div class="label">Totalt CRs</div>
+                <div class="label">Total CRs</div>
                 <div class="value highlight">${totalCRs}</div>
             </div>
             <div class="summary-card">
-                <div class="label">Granskade</div>
+                <div class="label">Reviewed</div>
                 <div class="value">${reviewedCount}</div>
-                <div class="subtext">av ${totalCRs}</div>
+                <div class="subtext">of ${totalCRs}</div>
             </div>
             <div class="summary-card">
-                <div class="label">Snitt Effort</div>
+                <div class="label">Avg Effort</div>
                 <div class="value">${scoredCount > 0 ? avgEffort : '-'}</div>
             </div>
             <div class="summary-card">
-                <div class="label">Snitt Efficiency</div>
+                <div class="label">Avg Efficiency</div>
                 <div class="value">${scoredCount > 0 ? avgEfficiency : '-'}</div>
             </div>
             <div class="summary-card">
-                <div class="label">Snitt Risk</div>
+                <div class="label">Avg Risk</div>
                 <div class="value">${scoredCount > 0 ? avgRisk : '-'}</div>
             </div>
         `;
@@ -194,14 +210,31 @@ class Dashboard {
 
         this.crDefinitions.forEach(cr => {
             const crData = this.data.crs[cr.id];
-            if (crData && crData.comments) {
-                crData.comments.forEach(comment => {
-                    allComments.push({
-                        ...comment,
-                        crId: cr.id,
-                        crTitle: cr.title
+            if (crData) {
+                // Legacy comments
+                if (crData.comments) {
+                    crData.comments.forEach(comment => {
+                        allComments.push({
+                            ...comment,
+                            crId: cr.id,
+                            crTitle: cr.title,
+                            slideNum: null
+                        });
                     });
-                });
+                }
+                // Slide-specific comments
+                if (crData.slideComments) {
+                    Object.entries(crData.slideComments).forEach(([slideNum, comments]) => {
+                        comments.forEach(comment => {
+                            allComments.push({
+                                ...comment,
+                                crId: cr.id,
+                                crTitle: cr.title,
+                                slideNum: parseInt(slideNum)
+                            });
+                        });
+                    });
+                }
             }
         });
 
@@ -209,14 +242,14 @@ class Dashboard {
         allComments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         if (allComments.length === 0) {
-            container.innerHTML = '<p class="empty-state">Inga kommentarer ännu. Kommentarer läggs till under presentationer.</p>';
+            container.innerHTML = '<p class="empty-state">No comments yet. Comments are added during presentations.</p>';
             return;
         }
 
         container.innerHTML = allComments.map(comment => `
             <div class="comment-item">
                 <div class="comment-header">
-                    <span class="comment-cr">${comment.crTitle}</span>
+                    <span class="comment-cr">${comment.crTitle}${comment.slideNum ? ` (Slide ${comment.slideNum})` : ''}</span>
                     <span class="comment-time">${this.formatTime(comment.timestamp)}</span>
                 </div>
                 <p class="comment-text">${this.escapeHtml(comment.text)}</p>
@@ -226,7 +259,7 @@ class Dashboard {
 
     formatTime(timestamp) {
         const date = new Date(timestamp);
-        return date.toLocaleString('sv-SE', {
+        return date.toLocaleString('en-US', {
             month: 'short',
             day: 'numeric',
             hour: '2-digit',
@@ -259,7 +292,7 @@ class Dashboard {
     // Export Report
     exportReport() {
         let report = '# Change Request Review Report\n';
-        report += `Generated: ${new Date().toLocaleString('sv-SE')}\n\n`;
+        report += `Generated: ${new Date().toLocaleString('en-US')}\n\n`;
         report += '---\n\n';
 
         this.crDefinitions.forEach(cr => {
@@ -274,11 +307,23 @@ class Dashboard {
             report += `- Efficiency: ${crData.scores.efficiency !== null ? crData.scores.efficiency + '/10' : 'Not set'}\n`;
             report += `- Risk: ${crData.scores.risk !== null ? crData.scores.risk + '/10' : 'Not set'}\n\n`;
 
-            if (crData.comments.length > 0) {
+            const totalComments = this.getTotalCommentCount(crData);
+            if (totalComments > 0) {
                 report += `**Comments:**\n`;
-                crData.comments.forEach(c => {
-                    report += `- [${this.formatTime(c.timestamp)}] ${c.text}\n`;
-                });
+                // Legacy comments
+                if (crData.comments) {
+                    crData.comments.forEach(c => {
+                        report += `- [${this.formatTime(c.timestamp)}] ${c.text}\n`;
+                    });
+                }
+                // Slide comments
+                if (crData.slideComments) {
+                    Object.entries(crData.slideComments).forEach(([slideNum, comments]) => {
+                        comments.forEach(c => {
+                            report += `- [Slide ${slideNum}] [${this.formatTime(c.timestamp)}] ${c.text}\n`;
+                        });
+                    });
+                }
             } else {
                 report += `**Comments:** None\n`;
             }
